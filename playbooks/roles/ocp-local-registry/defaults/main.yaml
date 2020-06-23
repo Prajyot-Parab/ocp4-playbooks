@@ -1,0 +1,18 @@
+---
+
+release_image_tag: "4.4.0-0.nightly-ppc64le-2020-06-14-154658"
+product_repo: "openshift-release-dev"
+release_name: "ocp-release-nightly"
+release_image: "quay.io/{{ product_repo }}/{{ release_name }}:{{ release_image_tag }}"
+
+local_registry_dir: ~/local_registry
+local_registry_name: "mirror-registry"
+local_registry_host: "registry.{{ install_config.cluster_id }}.{{ install_config.cluster_domain }}"
+local_registry_port: "5000"
+local_registry: "{{ local_registry_host }}:{{ local_registry_port }}"
+local_registry_repo: "ocp4/openshift44"
+local_registry_user: "admin"
+local_registry_password: "admin"
+local_registry_cert: "/opt/registry/certs"
+local_registry_image: docker.io/ibmcom/registry-ppc64le:2.6.2.5
+

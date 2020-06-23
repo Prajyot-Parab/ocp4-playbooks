@@ -1,0 +1,14 @@
+---
+# handlers file for config-local-registry
+- name: Restart firewalld service
+  service:
+    name: firewalld.service
+    state: restarted
+  listen: "restart firewalld"
+
+- name: Restart local-registry
+  shell: |
+    podman stop {{ local_registry_name }}
+    podman start {{ local_registry_name }}
+  listen: "restart local-registry"
+

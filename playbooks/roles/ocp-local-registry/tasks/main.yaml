@@ -1,0 +1,121 @@
+---
+# tasks file for configure-local-registry
+- name: Skip config if install workdir exist
+  stat:
+    path: "{{ workdir }}"
+  register: dir_status
+
+- meta: end_play
+  when: dir_status.stat.exists
+
+- name: Create local registry config dir
+  file:
+    path: "{{ local_registry_dir }}"
+    state: directory
+
+- name: Install Dependencies
+  yum:
+    name:
+    - httpd-tools
+    - jq
+    state: latest
+
+- name: Create registry directories
+  file:
+    path: /opt/registry/{{ item }}
+    state: directory
+  with_items:
+    - auth
+    - certs
+    - data
+
+- name: Create pull secret file
+  shell: |
+    echo '{{ install_config.pull_secret }}' > pull_secret
+  args:
+    chdir: "{{ local_registry_dir }}"
+
+- name: Get current local registry
+  shell: podman ps -q -f name={{ local_registry_name }}
+  register: registry_pod_id
+
+- name: Clean up the current local registry
+  shell: |
+    podman stop {{ local_registry_name }}
+    podman rm --force {{ local_registry_name }}
+  when: registry_pod_id.stdout != ""
+
+- name: Create self signed certificate for local registry
+  shell: openssl req -newkey rsa:4096 -nodes -sha256 -keyout domain.key -x509 -days 365 -out domain.crt \
+          -subj "/C=US/ST=State/L=City/O=Company, Inc./OU=Department Name/CN={{ local_registry_host }}"
+  args:
+    chdir: "{{ local_registry_cert }}"
+
+- name: Create the user and password for local registry
+  shell: htpasswd -bBc /opt/registry/auth/htpasswd {{ local_registry_user }} {{ local_registry_password }}
+
+- name: Create the mirror-registry container to host local registry
+  shell: |
+    podman container prune
+    podman run --name {{ local_registry_name }} -p {{ local_registry_port }}:5000 \
+     -v /opt/registry/data:/var/lib/registry:z \
+     -v /opt/registry/auth:/auth:z \
+     -e "REGISTRY_AUTH=htpasswd" \
+     -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
+     -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
+     -v {{ local_registry_cert }}:/certs:z \
+     -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
+     -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
+     -d {{ local_registry_image }}
+
+- name: Allow traffic at local registry port
+  firewalld:
+    port: "{{ local_registry_port }}/tcp"
+    permanent: yes
+    zone: "{{ item }}"
+    state: enabled
+  with_items:
+  - internal
+  - public
+  notify:
+  - restart firewalld
+
+- name: Copy self-signed certificate
+  copy:
+    src: "{{ local_registry_cert }}/domain.crt"
+    dest: "{{ item }}"
+    remote_src: yes
+    force: yes
+  with_items:
+   - /etc/pki/ca-trust/source/anchors/domain.crt
+   - "{{ local_registry_dir }}/.local-registry.crt"
+
+- name: Add the self-signed certificate to your list of trusted certificates
+  shell: update-ca-trust
+
+- name: Intend certificate content
+  replace:
+    path: "{{ local_registry_dir }}/.local-registry.crt"
+    regexp: '^'
+    replace: '  '
+
+- name: Get local registry pod
+  shell: curl -u {{ local_registry_user }}:{{ local_registry_password }} -k https://{{ local_registry }}/v2/_catalog | grep repositories
+  register: pod_state
+
+- name: Mirror the registry
+  when: pod_state.stdout != ""
+  block:
+  - name: Generate the token for your mirror registry
+    shell: |
+      podman login -u {{ local_registry_user }} -p {{ local_registry_password }} --authfile {{ local_registry_dir }}/pullsecret_config.json {{ local_registry }}
+      jq -c --argjson var "$(jq .auths {{ local_registry_dir }}/pullsecret_config.json)" '.auths += $var' {{ local_registry_dir }}/pull_secret > {{ local_registry_dir }}/pullsecret.txt
+
+  - name: Mirror the registry
+    shell: oc adm -a {{ local_registry_dir }}/pullsecret.txt release mirror \
+      --from={{ release_image }} \
+      --to={{ local_registry }}/{{ local_registry_repo }} \
+      --to-release-image={{ local_registry }}/{{ local_registry_repo }}:{{ release_image_tag }}
+    register: registry
+    notify: restart local-registry
+

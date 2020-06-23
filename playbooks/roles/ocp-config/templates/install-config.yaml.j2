@@ -22,5 +22,20 @@ networking:
   - 172.30.0.0/16
 platform:
   none: {}
+{% if use_local_registry %}
+pullSecret: '{{ pull_secret | to_json }}'
+sshKey: '{{ install_config.public_ssh_key }}'
+additionalTrustBundle: |
+{{ local_cert }}
+imageContentSources:
+- mirrors:
+  - {{ local_registry }}/{{ local_registry_repo }}
+  source: quay.io/openshift-release-dev/ocp-release-nightly
+- mirrors:
+  - {{ local_registry }}/{{ local_registry_repo }}
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+{% else %}
 pullSecret: '{{ install_config.pull_secret }}'
 sshKey: '{{ install_config.public_ssh_key }}'
+{% endif %}
+

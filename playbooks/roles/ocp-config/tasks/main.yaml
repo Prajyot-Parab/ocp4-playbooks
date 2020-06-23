@@ -60,6 +60,16 @@
 #  - absent
   - directory
 
+- name: Set ocp release image override fact
+  set_fact:
+    ocp_release_image_override: "{{ release_image_override }}"
+
+- name: Set local registry config facts
+  when: use_local_registry
+  set_fact:
+    ocp_release_image_override: "{{ local_registry }}/{{ local_registry_repo }}:{{ release_image_tag }}"
+    pull_secret: "{{ lookup('file', '{{ local_registry_dir }}/pullsecret.txt') | from_json }}"
+    local_cert: "{{ lookup('file', '{{ local_registry_dir }}/.local-registry.crt')}}"
 
 - name: Generate install-config.yaml
   template:
@@ -94,7 +104,7 @@
     backrefs: yes
 
 - name: Create ignition files
-  shell: "OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE={{ release_image_override }} openshift-install create ignition-configs --log-level {{ log_level }}"
+  shell: "OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE={{ ocp_release_image_override }} openshift-install create ignition-configs --log-level {{ log_level }}"
   args:
     chdir: "{{ workdir }}"
 

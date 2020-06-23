@@ -1,5 +1,12 @@
 ---
 # file: install.yml
+- name: Setup local registry
+  hosts: bastion
+  tasks:
+    - include_role:
+        name: ocp-local-registry
+      when: use_local_registry
+
 - name: Create OCP config
   hosts: bastion
   roles:
