@@ -17,6 +17,7 @@ Role Variables
 | workdir                 | no       | ~/ocp4-workdir | Place for config generation and auth files  |
 | log_level               | no       | info           | Option --log-level in openshift-install cmd |
 | release_image_override  | no       | ""             | OCP image overide variable                  |
+| enable_local_registry   | no       | false          | Flag to be set to true to enable usage of local registry only in case of disconnected install |
 | master_count            | yes      |                | Number of master nodes                      |
 
 Dependencies
@@ -43,3 +44,4 @@ Author Information
 ------------------
 
 Yussuf Shaikh (yussuf@us.ibm.com)
+Prajyot Parab (prajyot.parab@ibm.com)
