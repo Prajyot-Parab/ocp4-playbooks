@@ -24,7 +24,7 @@ platform:
   none: {}
 sshKey: '{{ install_config.public_ssh_key }}'
 {% if enable_local_registry %}
-pullSecret: '{{ lookup('file', '~/.openshift/pull-secret-updated') | from_json | to_json }}'
+pullSecret: '{{ lookup('file', '~/.openshift/pull-secret-updated') }}'
 additionalTrustBundle: |
 {{ lookup('file', '/opt/registry/certs/domain.crt') | indent(2, first=True) }}
 imageContentSources:
