@@ -16,6 +16,11 @@
   notify:
     - restart squid
 
+- name: Enable service squid
+  service:
+    name: squid
+    enabled: yes
+
 - name: Add Squid to firewall
   firewalld:
     service: squid
