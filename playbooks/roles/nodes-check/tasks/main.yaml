@@ -1,0 +1,8 @@
+---
+# tasks file for ocp4 cluster nodes connection status check
+
+- name: Check connection status
+  fail:
+   msg: Unable to connect to host {{ansible_host}}.
+  when: status.failed
+
